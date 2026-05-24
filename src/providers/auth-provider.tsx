@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             created_at: members.created_at as string,
           });
 
+
           const { data: plan } = await insforge.database
             .from("plans")
             .select("*")
@@ -65,6 +66,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             useTenantStore.getState().setSubscription(null);
           }
+        }
+      } else {
+        // Auto-create default tenant for new users
+        const { data: freePlan, error: planError } = await insforge.database
+          .from("plans")
+          .select("id")
+          .eq("name", "free")
+          .single();
+
+        if (freePlan) {
+          const tenantId = crypto.randomUUID();
+
+          const { error: tenantError } = await insforge.database
+            .from("tenants")
+            .insert([{
+              id: tenantId,
+              name: "My Workspace",
+              slug: `workspace-${Math.random().toString(36).substring(2, 8)}`,
+              owner_id: userId,
+              plan_id: freePlan.id,
+            }]);
+
+          if (!tenantError) {
+            const { error: memberError } = await insforge.database
+              .from("tenant_members")
+              .insert([{
+                tenant_id: tenantId,
+                user_id: userId,
+                role: "owner",
+              }]);
+              
+            if (memberError) console.error("Failed to add member", memberError);
+
+            // Reload to set states properly
+            return loadTenant(userId);
+          } else {
+            console.error("Failed to create tenant", tenantError);
+          }
+        } else {
+          console.error("Failed to find free plan", planError);
         }
       }
     },
