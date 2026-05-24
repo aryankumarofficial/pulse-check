@@ -29,7 +29,34 @@ export const metadata: Metadata = {
     "API monitoring",
     "downtime detection",
     "incident management",
+    "status page",
+    "SaaS",
   ],
+  authors: [{ name: "Downtime Detector Team" }],
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://downtime-detector.com",
+    title: "Downtime Detector — Website & API Monitoring",
+    description: "Monitor websites, APIs, and AI endpoints. Get instant alerts when things go down. Track uptime, response times, and incidents in real-time.",
+    siteName: "Downtime Detector",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Downtime Detector — Website & API Monitoring",
+    description: "Monitor websites, APIs, and AI endpoints. Get instant alerts when things go down.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({

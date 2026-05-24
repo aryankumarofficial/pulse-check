@@ -17,7 +17,7 @@ const PUBLIC_ROUTES = [
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setUser, setLoading, user } = useAuthStore();
+  const { setUser, setLoading, user, refreshTrigger } = useAuthStore();
   const { setCurrentTenant, setMembership, setPlan } = useTenantStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -52,6 +52,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (plan) {
             setPlan(plan as import("@/types/tenant").Plan);
           }
+
+          // Fetch active subscription
+          const { data: subscription } = await insforge.database
+            .from("subscriptions")
+            .select("*")
+            .eq("tenant_id", (tenant as Record<string, unknown>).id)
+            .single();
+
+          if (subscription) {
+            useTenantStore.getState().setSubscription(subscription as import("@/types/tenant").Subscription);
+          } else {
+            useTenantStore.getState().setSubscription(null);
+          }
         }
       }
     },
@@ -81,6 +94,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
   }, [setUser, setLoading, loadTenant]);
+
+  useEffect(() => {
+    // Watch for refresh triggers from the auth store
+    if (refreshTrigger > 0 && user?.id) {
+      loadTenant(user.id);
+    }
+  }, [refreshTrigger, user?.id, loadTenant]);
 
   useEffect(() => {
     const isPublicRoute = PUBLIC_ROUTES.some(

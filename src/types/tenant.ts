@@ -29,3 +29,14 @@ export interface Plan {
   is_active: boolean;
   created_at: string;
 }
+
+export interface Subscription {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  status: "active" | "past_due" | "cancelled" | "paused";
+  billing_period: "monthly" | "annual";
+  razorpay_subscription_id?: string | null;
+  current_period_end?: string | null;
+  created_at: string;
+}

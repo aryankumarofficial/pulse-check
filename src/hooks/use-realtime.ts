@@ -40,6 +40,19 @@ export function useRealtimeSubscription() {
           queryClient.invalidateQueries({ queryKey: ACTIVITY_KEYS.all });
         });
 
+        // Listen for subscription changes (e.g. from Razorpay webhooks)
+        insforge.realtime.on("INSERT_subscription", (payload) => {
+          if (!isMounted) return;
+          const { useAuthStore } = require("@/stores/auth-store");
+          useAuthStore.getState().triggerRefresh();
+        });
+
+        insforge.realtime.on("UPDATE_subscription", (payload) => {
+          if (!isMounted) return;
+          const { useAuthStore } = require("@/stores/auth-store");
+          useAuthStore.getState().triggerRefresh();
+        });
+
         console.log(`Subscribed to real-time events on ${channelName}`);
       } catch (err) {
         console.error("Failed to setup realtime", err);
