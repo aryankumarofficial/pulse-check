@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -8,17 +8,78 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
+import { insforge } from "@/lib/insforge";
 
 export default function AdminSettingsPage() {
-  const [saving, setSaving] = useState(false);
+  const [savingSignups, setSavingSignups] = useState(false);
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      toast.success("Platform settings updated successfully");
-    }, 1000);
+  const [publicSignups, setPublicSignups] = useState(true);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      // Using standard PostgREST table select via insforge SDK
+      // InsForge SDK automatically infers PostgREST endpoints for tables
+      const { data, error } = await insforge.database.from("platform_settings").select("*");
+      if (error) throw error;
+
+      if (data) {
+        data.forEach((setting: any) => {
+          if (setting.key === "maintenance_mode") setMaintenanceMode(setting.value === true);
+          if (setting.key === "public_signups") setPublicSignups(setting.value === true);
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      toast.error("Failed to load platform settings.");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleSaveSignups = async () => {
+    setSavingSignups(true);
+    try {
+      const { error } = await insforge.database.rpc("update_platform_setting", {
+        setting_key: "public_signups",
+        setting_value: publicSignups
+      });
+      if (error) throw error;
+      toast.success("Sign-up settings updated successfully");
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      toast.error("Failed to update settings");
+    } finally {
+      setSavingSignups(false);
+    }
+  };
+
+  const handleSaveMaintenance = async () => {
+    setSavingMaintenance(true);
+    try {
+      const { error } = await insforge.database.rpc("update_platform_setting", {
+        setting_key: "maintenance_mode",
+        setting_value: maintenanceMode
+      });
+      if (error) throw error;
+      toast.success("Maintenance settings updated successfully");
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      toast.error("Failed to update maintenance settings");
+    } finally {
+      setSavingMaintenance(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-muted-foreground">Loading settings...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -45,36 +106,25 @@ export default function AdminSettingsPage() {
                   When disabled, new users can only be invited by admins.
                 </p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={publicSignups} 
+                onCheckedChange={setPublicSignups} 
+              />
             </div>
             
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Require Email Verification</Label>
                 <p className="text-sm text-muted-foreground">
-                  Users must verify their email before accessing the dashboard.
+                  Users must verify their email before accessing the dashboard. (Currently managed in dashboard)
                 </p>
               </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Default Free Plan Limits</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Max Monitors</Label>
-                  <Input type="number" defaultValue="5" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Check Interval (seconds)</Label>
-                  <Input type="number" defaultValue="60" />
-                </div>
-              </div>
+              <Switch disabled defaultChecked />
             </div>
           </CardContent>
           <CardFooter className="border-t border-border pt-4">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? (
+            <Button onClick={handleSaveSignups} disabled={savingSignups}>
+              {savingSignups ? (
                 <>Saving...</>
               ) : (
                 <><Save className="mr-2 h-4 w-4" /> Save Sign-up Settings</>
@@ -98,17 +148,15 @@ export default function AdminSettingsPage() {
                   All non-admin users will see a maintenance page. Active monitors will continue running.
                 </p>
               </div>
-              <Switch />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Maintenance Message</Label>
-              <Input defaultValue="We are currently undergoing scheduled maintenance. Please check back soon." />
+              <Switch 
+                checked={maintenanceMode} 
+                onCheckedChange={setMaintenanceMode} 
+              />
             </div>
           </CardContent>
           <CardFooter className="border-t border-border pt-4">
-            <Button onClick={handleSave} disabled={saving} variant="outline">
-              Save Maintenance Settings
+            <Button onClick={handleSaveMaintenance} disabled={savingMaintenance} variant="outline">
+              {savingMaintenance ? "Saving..." : "Save Maintenance Settings"}
             </Button>
           </CardFooter>
         </Card>
