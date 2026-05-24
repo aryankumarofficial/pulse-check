@@ -165,7 +165,7 @@ export default function BillingPage() {
       const options = {
         key: data.razorpay_key,
         subscription_id: data.subscription_id,
-        name: "Downtime Detector",
+        name: "PulseCheck",
         description: `${data.plan_name} Plan — ${data.billing_period}`,
         prefill: {
           email: user.email,

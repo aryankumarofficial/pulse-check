@@ -16,7 +16,7 @@ export function HomeNav() {
             <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center">
               <Activity className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-bold">Downtime Detector</span>
+            <span className="text-lg font-bold">PulseCheck</span>
           </div>
           <div className="flex items-center gap-4">
             {!isLoading && isAuthenticated ? (

@@ -75,7 +75,7 @@ export default function AdminDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Platform Administration</h1>
         <p className="text-muted-foreground mt-1">
-          Global overview and management of the Downtime Detector SaaS platform.
+          Global overview and management of the PulseCheck SaaS platform.
         </p>
       </div>
 

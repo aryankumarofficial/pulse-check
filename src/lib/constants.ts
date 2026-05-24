@@ -1,4 +1,4 @@
-export const APP_NAME = "Downtime Detector";
+export const APP_NAME = "PulseCheck";
 export const APP_DESCRIPTION =
   "Monitor websites, APIs, and AI endpoints. Get instant alerts when things go down.";
 

@@ -129,7 +129,7 @@ export default function DashboardLayout({
             </div>
             {!collapsed && (
               <span className="font-bold text-sidebar-foreground whitespace-nowrap">
-                Downtime Detector
+                PulseCheck
               </span>
             )}
           </Link>

@@ -97,7 +97,7 @@ export default function SignUpPage() {
             <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <Activity className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold">Downtime Detector</span>
+            <span className="text-xl font-bold">PulseCheck</span>
           </div>
           <div className="space-y-6">
             <h1 className="text-4xl font-bold leading-tight">
@@ -145,7 +145,7 @@ export default function SignUpPage() {
             <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
               <Activity className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold">Downtime Detector</span>
+            <span className="text-xl font-bold">PulseCheck</span>
           </div>
 
           <div className="space-y-2">

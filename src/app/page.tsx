@@ -227,10 +227,10 @@ export default function HomePage() {
               <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center">
                 <Activity className="h-4 w-4 text-white" />
               </div>
-              <span className="text-sm font-medium">Downtime Detector</span>
+              <span className="text-sm font-medium">PulseCheck</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2026 Downtime Detector. All rights reserved.
+              © 2026 PulseCheck. All rights reserved.
             </p>
           </div>
         </div>

@@ -77,7 +77,7 @@ function SignInContent() {
             <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <Activity className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold">Downtime Detector</span>
+            <span className="text-xl font-bold">PulseCheck</span>
           </div>
           <div className="space-y-6">
             <h1 className="text-4xl font-bold leading-tight">
@@ -105,7 +105,7 @@ function SignInContent() {
             </div>
           </div>
           <p className="text-sm text-white/50">
-            © 2026 Downtime Detector. All rights reserved.
+            © 2026 PulseCheck. All rights reserved.
           </p>
         </div>
         {/* Decorative elements */}
@@ -125,7 +125,7 @@ function SignInContent() {
             <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
               <Activity className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold">Downtime Detector</span>
+            <span className="text-xl font-bold">PulseCheck</span>
           </div>
 
           <div className="space-y-2">
