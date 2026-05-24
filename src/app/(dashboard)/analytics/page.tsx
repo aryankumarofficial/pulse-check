@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { format, subDays } from "date-fns";
-import { Activity, BarChart3, Clock, ArrowUpRight, ArrowDownRight, Globe } from "lucide-react";
+import { format } from "date-fns";
+import { ArrowUpRight, ArrowDownRight, Globe, Loader2 } from "lucide-react";
 import { 
   AreaChart, 
   Area, 
@@ -13,7 +12,6 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  Legend
 } from "recharts";
 import { useMonitors } from "@/hooks/use-monitors";
 import { useQuery } from "@tanstack/react-query";
@@ -21,29 +19,50 @@ import { insforge } from "@/lib/insforge";
 import { useTenantStore } from "@/stores/tenant-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AnalyticsPage() {
   const { currentTenant } = useTenantStore();
   const { data: monitors } = useMonitors();
-  
-  // Fake historical data for demonstration since we don't have enough real data yet
-  // In a real implementation, we would query monitor_checks grouped by day/hour
-  const generateMockData = () => {
-    const data = [];
-    const now = new Date();
-    for (let i = 14; i >= 0; i--) {
-      const date = subDays(now, i);
-      data.push({
-        date: format(date, "MMM dd"),
-        uptime: 99 + Math.random() * 1,
-        responseTime: 150 + Math.random() * 100,
-        incidents: Math.floor(Math.random() * 3) === 0 ? 1 : 0,
-      });
-    }
-    return data;
-  };
 
-  const chartData = generateMockData();
+  // Fetch real analytics summary from RPC
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ["analytics", "summary", currentTenant?.id],
+    queryFn: async () => {
+      const { data, error } = await insforge.database.rpc("get_analytics_summary", {
+        p_tenant_id: currentTenant!.id,
+      });
+      if (error) throw error;
+      return typeof data === "string" ? JSON.parse(data) : data;
+    },
+    enabled: !!currentTenant,
+  });
+
+  // Fetch real daily timeseries from RPC
+  const { data: chartData, isLoading: chartLoading } = useQuery({
+    queryKey: ["analytics", "daily", currentTenant?.id],
+    queryFn: async () => {
+      const { data, error } = await insforge.database.rpc("get_daily_analytics", {
+        p_tenant_id: currentTenant!.id,
+        p_days: 14,
+      });
+      if (error) throw error;
+      const rows = typeof data === "string" ? JSON.parse(data) : data;
+      // Format dates for display
+      return (rows || []).map((row: any) => ({
+        ...row,
+        date: format(new Date(row.date), "MMM dd"),
+      }));
+    },
+    enabled: !!currentTenant,
+  });
+
+  const uptimeDelta = summary ? (summary.global_uptime - summary.prev_uptime).toFixed(2) : "0";
+  const uptimeImproved = parseFloat(uptimeDelta) >= 0;
+  const responseDelta = summary ? Math.abs(summary.avg_response_time - summary.prev_avg_response) : 0;
+  const responseImproved = summary ? summary.avg_response_time <= summary.prev_avg_response : true;
+  const incidentDelta = summary ? Math.abs(summary.total_incidents_30d - summary.prev_incidents) : 0;
+  const incidentImproved = summary ? summary.total_incidents_30d <= summary.prev_incidents : true;
 
   return (
     <div className="space-y-6">
@@ -60,11 +79,20 @@ export default function AnalyticsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Global Uptime (30d)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-emerald-500">99.98%</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3 text-emerald-500" />
-              <span className="text-emerald-500">0.02%</span> vs last month
-            </p>
+            {summaryLoading ? <Skeleton className="h-9 w-24" /> : (
+              <>
+                <div className="text-3xl font-bold text-emerald-500">{summary?.global_uptime ?? 100}%</div>
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  {uptimeImproved
+                    ? <ArrowUpRight className="h-3 w-3 text-emerald-500" />
+                    : <ArrowDownRight className="h-3 w-3 text-red-500" />
+                  }
+                  <span className={uptimeImproved ? "text-emerald-500" : "text-red-500"}>
+                    {Math.abs(parseFloat(uptimeDelta))}%
+                  </span> vs last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
         
@@ -73,11 +101,20 @@ export default function AnalyticsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Avg Response Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">245ms</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <ArrowDownRight className="h-3 w-3 text-emerald-500" />
-              <span className="text-emerald-500">12ms</span> vs last month
-            </p>
+            {summaryLoading ? <Skeleton className="h-9 w-24" /> : (
+              <>
+                <div className="text-3xl font-bold">{summary?.avg_response_time ?? 0}ms</div>
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  {responseImproved
+                    ? <ArrowDownRight className="h-3 w-3 text-emerald-500" />
+                    : <ArrowUpRight className="h-3 w-3 text-red-500" />
+                  }
+                  <span className={responseImproved ? "text-emerald-500" : "text-red-500"}>
+                    {responseDelta}ms
+                  </span> vs last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
         
@@ -86,11 +123,20 @@ export default function AnalyticsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Incidents (30d)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <ArrowDownRight className="h-3 w-3 text-emerald-500" />
-              <span className="text-emerald-500">2</span> vs last month
-            </p>
+            {summaryLoading ? <Skeleton className="h-9 w-24" /> : (
+              <>
+                <div className="text-3xl font-bold">{summary?.total_incidents_30d ?? 0}</div>
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  {incidentImproved
+                    ? <ArrowDownRight className="h-3 w-3 text-emerald-500" />
+                    : <ArrowUpRight className="h-3 w-3 text-red-500" />
+                  }
+                  <span className={incidentImproved ? "text-emerald-500" : "text-red-500"}>
+                    {incidentDelta}
+                  </span> vs last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -102,24 +148,34 @@ export default function AnalyticsPage() {
             <CardDescription>Average global response time across all monitors</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorResponse" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dx={-10} />
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <Area type="monotone" dataKey="responseTime" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorResponse)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : !chartData || chartData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                No check data recorded yet. Charts will appear after the first monitoring cycle.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorResponse" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dx={-10} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Area type="monotone" dataKey="responseTime" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorResponse)" name="Avg Response (ms)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -129,18 +185,28 @@ export default function AnalyticsPage() {
             <CardDescription>Uptime percentage per day</CardDescription>
           </CardHeader>
           <CardContent className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888888' }} dy={10} />
-                <YAxis domain={[98, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888888' }} />
-                <Tooltip 
-                  cursor={{ fill: 'hsl(var(--muted))' }}
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                />
-                <Bar dataKey="uptime" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {chartLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !chartData || chartData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                No data yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888888' }} dy={10} />
+                  <YAxis domain={[98, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888888' }} />
+                  <Tooltip 
+                    cursor={{ fill: 'hsl(var(--muted))' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                  />
+                  <Bar dataKey="uptime" fill="#10b981" radius={[4, 4, 0, 0]} name="Uptime %" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -164,8 +230,8 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">{monitor.uptime_percentage}%</p>
-                    <Badge variant={monitor.uptime_percentage === 100 ? "default" : "outline"} className={monitor.uptime_percentage === 100 ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" : ""}>
-                      {monitor.uptime_percentage === 100 ? "Perfect" : "Degraded"}
+                    <Badge variant={monitor.uptime_percentage >= 99.5 ? "default" : "outline"} className={monitor.uptime_percentage >= 99.5 ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" : ""}>
+                      {monitor.uptime_percentage >= 99.5 ? "Healthy" : "Degraded"}
                     </Badge>
                   </div>
                 </div>

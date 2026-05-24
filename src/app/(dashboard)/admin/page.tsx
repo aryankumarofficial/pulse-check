@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Server, AlertTriangle, Activity, Database, HardDrive, Cpu, ShieldCheck, ShieldAlert } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { Users, Server, AlertTriangle, Activity, Database, HardDrive, Cpu, ShieldCheck, ShieldAlert, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,32 +15,60 @@ export default function AdminDashboardPage() {
     totalMonitors: 0,
     activeIncidents: 0,
   });
+  const [resources, setResources] = useState({
+    total_checks_30d: 0,
+    db_size_mb: 0,
+    total_monitors: 0,
+    active_monitors: 0,
+    total_incidents: 0,
+    active_incidents: 0,
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAdminStats = async () => {
+    const fetchAdminData = async () => {
       try {
-        const { data, error } = await insforge.database.rpc("get_admin_stats");
-        
-        if (error) throw error;
-        
-        if (data) {
+        const [statsRes, resourceRes, activityRes] = await Promise.all([
+          insforge.database.rpc("get_admin_stats"),
+          insforge.database.rpc("get_admin_resource_stats"),
+          insforge.database
+            .from("activity_logs")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(10),
+        ]);
+
+        if (statsRes.data) {
+          const d = typeof statsRes.data === "string" ? JSON.parse(statsRes.data) : statsRes.data;
           setStats({
-            totalUsers: data.totalUsers || 0,
-            totalTenants: data.totalTenants || 0,
-            totalMonitors: data.totalMonitors || 0,
-            activeIncidents: data.activeIncidents || 0,
+            totalUsers: d.totalUsers || 0,
+            totalTenants: d.totalTenants || 0,
+            totalMonitors: d.totalMonitors || 0,
+            activeIncidents: d.activeIncidents || 0,
           });
         }
+
+        if (resourceRes.data) {
+          const r = typeof resourceRes.data === "string" ? JSON.parse(resourceRes.data) : resourceRes.data;
+          setResources(r);
+        }
+
+        if (activityRes.data) {
+          setRecentActivity(activityRes.data);
+        }
       } catch (error) {
-        console.error("Failed to fetch admin stats", error);
+        console.error("Failed to fetch admin data", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAdminStats();
+    fetchAdminData();
   }, []);
+
+  const dbUsagePct = Math.min(100, Math.round((resources.db_size_mb / 500) * 100));
+  const checksUsagePct = Math.min(100, Math.round((resources.total_checks_30d / 100000) * 100));
 
   return (
     <div className="space-y-6">
@@ -67,8 +96,8 @@ export default function AdminDashboardPage() {
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-3xl font-bold">{stats.totalMonitors}</div>}
-            <p className="text-xs text-muted-foreground mt-1">Running network checks</p>
+            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-3xl font-bold">{resources.active_monitors}</div>}
+            <p className="text-xs text-muted-foreground mt-1">{resources.total_monitors} total created</p>
           </CardContent>
         </Card>
         <Card>
@@ -77,8 +106,8 @@ export default function AdminDashboardPage() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-3xl font-bold">{stats.activeIncidents}</div>}
-            <p className="text-xs text-muted-foreground mt-1">Currently unresolved</p>
+            {loading ? <Skeleton className="h-8 w-16" /> : <div className="text-3xl font-bold">{resources.active_incidents}</div>}
+            <p className="text-xs text-muted-foreground mt-1">{resources.total_incidents} total recorded</p>
           </CardContent>
         </Card>
         <Card>
@@ -99,7 +128,7 @@ export default function AdminDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>System Resources</CardTitle>
-            <CardDescription>InsForge Backend Capacity</CardDescription>
+            <CardDescription>Live backend capacity metrics</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -108,10 +137,12 @@ export default function AdminDashboardPage() {
                   <Database className="h-4 w-4 text-blue-500" />
                   Database Storage
                 </div>
-                <span>45% (225MB / 500MB)</span>
+                {loading ? <Skeleton className="h-4 w-32" /> : (
+                  <span>{dbUsagePct}% ({resources.db_size_mb}MB / 500MB)</span>
+                )}
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 w-[45%]" />
+                <div className="h-full bg-blue-500 transition-all" style={{ width: `${dbUsagePct}%` }} />
               </div>
             </div>
 
@@ -119,12 +150,14 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 font-medium">
                   <HardDrive className="h-4 w-4 text-purple-500" />
-                  Edge Invocation Quota
+                  Monitor Checks (30d)
                 </div>
-                <span>12% (12k / 100k requests)</span>
+                {loading ? <Skeleton className="h-4 w-32" /> : (
+                  <span>{checksUsagePct}% ({resources.total_checks_30d.toLocaleString()} / 100k)</span>
+                )}
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-purple-500 w-[12%]" />
+                <div className="h-full bg-purple-500 transition-all" style={{ width: `${checksUsagePct}%` }} />
               </div>
             </div>
 
@@ -132,12 +165,14 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 font-medium">
                   <Cpu className="h-4 w-4 text-emerald-500" />
-                  Realtime Peak Connections
+                  Active Monitors Capacity
                 </div>
-                <span>5% (25 / 500 max)</span>
+                {loading ? <Skeleton className="h-4 w-32" /> : (
+                  <span>{Math.round((resources.active_monitors / 500) * 100)}% ({resources.active_monitors} / 500 max)</span>
+                )}
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 w-[5%]" />
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.round((resources.active_monitors / 500) * 100)}%` }} />
               </div>
             </div>
           </CardContent>
@@ -149,12 +184,32 @@ export default function AdminDashboardPage() {
             <CardDescription>Global audit log of significant actions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center h-48 text-center space-y-3">
-              <ShieldAlert className="h-8 w-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                No high-level administrative actions recorded yet.
-              </p>
-            </div>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-center space-y-3">
+                <ShieldAlert className="h-8 w-8 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">
+                  No platform activity recorded yet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {recentActivity.map(log => (
+                  <div key={log.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50">
+                    <Clock className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{log.action}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {log.entity_type} · {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

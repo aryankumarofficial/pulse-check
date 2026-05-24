@@ -3,8 +3,10 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Activity, Globe, Server, Cpu, Clock, Calendar, CheckCircle, XCircle, AlertTriangle, ExternalLink, PauseCircle, HelpCircle } from "lucide-react";
-import { formatDistanceToNow, format, subHours } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { useMonitor } from "@/hooks/use-monitors";
+import { useQuery } from "@tanstack/react-query";
+import { insforge } from "@/lib/insforge";
 import { ROUTES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,20 +71,25 @@ export default function MonitorDetailPage() {
 
   const statusDisplay = getStatusDisplay(monitor.current_status, monitor.is_active);
 
-  const generateMockPingData = () => {
-    const data = [];
-    const now = new Date();
-    for (let i = 24; i >= 0; i--) {
-      const date = subHours(now, i);
-      data.push({
-        time: format(date, "HH:mm"),
-        ping: Math.max(50, monitor.last_response_time - 50 + Math.random() * 100),
+  // Fetch real check history from the database
+  const { data: pingData, isLoading: pingLoading } = useQuery({
+    queryKey: ["monitor-checks", monitorId],
+    queryFn: async () => {
+      const { data, error } = await insforge.database.rpc("get_monitor_checks_history", {
+        p_monitor_id: monitorId,
+        p_hours: 24,
       });
-    }
-    return data;
-  };
-
-  const pingData = generateMockPingData();
+      if (error) throw error;
+      const rows = typeof data === "string" ? JSON.parse(data) : data;
+      return (rows || []).map((row: any) => ({
+        time: format(new Date(row.checked_at), "HH:mm"),
+        ping: row.ping || 0,
+        is_up: row.is_up,
+      }));
+    },
+    enabled: !!monitorId,
+    refetchInterval: 60000, // Refresh every 60s
+  });
 
   return (
     <div className="space-y-6">
@@ -194,24 +201,34 @@ export default function MonitorDetailPage() {
             <CardDescription>Latency measurements from global edge network</CardDescription>
           </CardHeader>
           <CardContent className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={pingData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorPing" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dx={-10} />
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <Area type="monotone" dataKey="ping" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorPing)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {pingLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : !pingData || pingData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                No check data recorded yet. Data will appear after the first monitoring cycle.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={pingData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorPing" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888888' }} dx={-10} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Area type="monotone" dataKey="ping" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorPing)" name="Response (ms)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
