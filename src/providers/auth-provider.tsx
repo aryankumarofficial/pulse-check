@@ -55,11 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Fetch active subscription
-          const { data: subscription } = await insforge.database
+          const { data: subscription, error: subError } = await insforge.database
             .from("subscriptions")
             .select("*")
             .eq("tenant_id", (tenant as Record<string, unknown>).id)
-            .single();
+            .maybeSingle();
 
           if (subscription) {
             useTenantStore.getState().setSubscription(subscription as import("@/types/tenant").Subscription);

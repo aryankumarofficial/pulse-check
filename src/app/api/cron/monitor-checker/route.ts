@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
   // Create client using the SERVICE_ROLE_KEY to bypass RLS for background jobs
   const client = createClient({
-    baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL || "",
+    baseUrl: process.env.NEXT_PUBLIC_INSFORGE_BASE_URL || "",
     anonKey: process.env.INSFORGE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || "",
   });
 

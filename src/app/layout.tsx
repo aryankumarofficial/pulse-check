@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Downtime Detector — Website & API Monitoring",
-    template: "%s | Downtime Detector",
+    default: "PulseCheck — Website & API Monitoring",
+    template: "%s | PulseCheck",
   },
   description:
     "Monitor websites, APIs, and AI endpoints. Get instant alerts when things go down. Track uptime, response times, and incidents in real-time.",
@@ -32,18 +32,18 @@ export const metadata: Metadata = {
     "status page",
     "SaaS",
   ],
-  authors: [{ name: "Downtime Detector Team" }],
+  authors: [{ name: "PulseCheck Team" }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://downtime-detector.com",
-    title: "Downtime Detector — Website & API Monitoring",
+    url: "https://pulsecheck.com",
+    title: "PulseCheck — Website & API Monitoring",
     description: "Monitor websites, APIs, and AI endpoints. Get instant alerts when things go down. Track uptime, response times, and incidents in real-time.",
-    siteName: "Downtime Detector",
+    siteName: "PulseCheck",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Downtime Detector — Website & API Monitoring",
+    title: "PulseCheck — Website & API Monitoring",
     description: "Monitor websites, APIs, and AI endpoints. Get instant alerts when things go down.",
   },
   robots: {
