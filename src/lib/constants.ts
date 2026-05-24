@@ -68,6 +68,8 @@ export const ROUTES = {
   activity: "/activity",
   admin: "/admin",
   adminUsers: "/admin/users",
+  adminAdmins: "/admin/admins",
+  adminSettings: "/admin/settings",
   adminMonitors: "/admin/monitors",
   adminIncidents: "/admin/incidents",
   adminAnalytics: "/admin/analytics",
