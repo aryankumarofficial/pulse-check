@@ -27,6 +27,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useTenantStore } from "@/stores/tenant-store";
 import { useNotificationStore } from "@/stores/notification-store";
 import { useThemeStore } from "@/stores/theme-store";
+import { useRealtimeSubscription } from "@/hooks/use-realtime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,6 +58,9 @@ export default function DashboardLayout({
   const { currentTenant } = useTenantStore();
   const { unreadCount } = useNotificationStore();
   const { theme, setTheme } = useThemeStore();
+
+  // Initialize real-time subscriptions for the dashboard
+  useRealtimeSubscription();
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {

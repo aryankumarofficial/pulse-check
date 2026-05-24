@@ -1,20 +1,23 @@
+import { NextResponse } from "next/server";
 import { createClient } from "@insforge/sdk";
 
-export default async function (req: Request): Promise<Response> {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
+// Use the Next.js Edge Runtime
+export const runtime = "edge";
 
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+export async function POST(req: Request) {
+  // Verify authorization if needed (e.g. cron secret)
+  const authHeader = req.headers.get("authorization");
+  if (
+    process.env.CRON_SECRET && 
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Create client using the SERVICE_ROLE_KEY to bypass RLS for background jobs
   const client = createClient({
-    baseUrl: Deno.env.get("INSFORGE_BASE_URL") || "",
-    anonKey: Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("ANON_KEY") || "",
+    baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL || "",
+    anonKey: process.env.INSFORGE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || "",
   });
 
   try {
@@ -26,10 +29,7 @@ export default async function (req: Request): Promise<Response> {
 
     if (monitorError) throw monitorError;
     if (!monitors || monitors.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "No active monitors to check" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return NextResponse.json({ success: true, message: "No active monitors to check" });
     }
 
     const checkResults = await Promise.allSettled(
@@ -126,15 +126,14 @@ export default async function (req: Request): Promise<Response> {
 
     const results = checkResults.map((r: any) => r.status === "fulfilled" ? r.value : { error: r.reason });
 
-    return new Response(JSON.stringify({ success: true, checksRun: monitors.length, results }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ success: true, checksRun: monitors.length, results });
   } catch (error: any) {
     console.error("Function error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// Support GET requests for easy local testing via browser
+export async function GET(req: Request) {
+  return POST(req);
 }

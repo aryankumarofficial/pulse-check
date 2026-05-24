@@ -9,8 +9,12 @@ interface NotificationState {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   setUnreadCount: (count: number) => void;
+  fetchUnreadCount: () => Promise<void>;
   reset: () => void;
 }
+
+import { insforge } from "@/lib/insforge";
+import { useTenantStore } from "@/stores/tenant-store";
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
@@ -42,5 +46,24 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       unreadCount: 0,
     })),
   setUnreadCount: (unreadCount) => set({ unreadCount }),
+  fetchUnreadCount: async () => {
+    // This is a bit of an anti-pattern accessing another store here, but it works for our simple use case
+    const tenantId = useTenantStore.getState().currentTenant?.id;
+    if (!tenantId) return;
+    
+    try {
+      const { count } = await insforge.database
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("is_read", false);
+        
+      if (count !== null) {
+        set({ unreadCount: count });
+      }
+    } catch (e) {
+      console.error("Failed to fetch unread count", e);
+    }
+  },
   reset: () => set({ notifications: [], unreadCount: 0 }),
 }));
