@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PulseCheck 🚀
 
-## Getting Started
+PulseCheck is a modern Downtime Detector & API Monitoring SaaS platform built with Next.js 16, Tailwind CSS, and the InsForge BaaS platform.
 
-First, run the development server:
+## Features ✨
+- **Website & API Monitoring:** Monitor the uptime of endpoints and services.
+- **Maintenance Mode:** Administrators can instantly toggle a global maintenance mode via the Platform Settings dashboard. This intercepts traffic dynamically at the Edge via Next.js Middleware.
+- **Admin Dashboard:** Manage users, platform settings, and monitor system health.
+- **Authentication:** Secure user authentication managed by InsForge.
+- **Payments:** Subscription and billing management powered by Razorpay.
 
+## Tech Stack 🛠️
+- **Frontend:** Next.js 16 (Turbopack, App Router), React 19, Tailwind CSS, Framer Motion
+- **Backend/Database:** InsForge BaaS (PostgreSQL, PostgREST API)
+- **Deployment:** Vercel (via InsForge deployment CLI)
+- **Payments:** Razorpay
+
+---
+
+## First-Time Setup ⚙️
+
+To get the project running locally, you need to set up your environment variables and database tables.
+
+### 1. Environment Variables
+Create a `.env.local` file in the root directory and add the following keys:
+
+```env
+# InsForge Backend
+NEXT_PUBLIC_INSFORGE_BASE_URL=https://your-app-id.region.insforge.app
+NEXT_PUBLIC_INSFORGE_ANON_KEY=your_anon_key
+
+# App Settings
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=PulseCheck
+
+# InsForge Service Role (Required for secure backend operations)
+INSFORGE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Razorpay Payment Gateway
+RAZORPAY_KEY_ID="rzp_test_xxxx"
+RAZORPAY_KEY_SECRET="your_secret"
+RAZORPAY_WEBHOOK_SECRET="your_webhook_secret"
+
+# Razorpay Plan IDs
+RAZORPAY_PLAN_PRO_MONTHLY=plan_xxxx
+RAZORPAY_PLAN_PRO_ANNUAL=plan_xxxx
+RAZORPAY_PLAN_BUSINESS_MONTHLY=plan_xxxx
+RAZORPAY_PLAN_BUSINESS_ANNUAL=plan_xxxx
+
+# OpenRouter (For AI Endpoint Monitoring)
+OPENROUTER_API_KEY=sk-or-v1-xxxx
+```
+
+### 2. Database Setup (InsForge)
+Ensure your InsForge database has the required tables. Key tables include:
+- `auth.users` (managed by InsForge Auth)
+- `platform_settings`: Used for global toggles like `maintenance_mode`.
+
+**Important Schema Notes:**
+- Setting user roles (like assigning an admin) requires creating an RPC function (`set_user_role`) that updates `auth.users` securely.
+
+### 3. Install Dependencies
+```bash
+npm install
+```
+
+### 4. Run the Development Server
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment 🌐
 
-## Learn More
+This project is configured to be deployed natively via the InsForge MCP deployment tool (which uses Vercel infrastructure).
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To deploy the latest changes:
+1. Ensure all environment variables are correctly set in your `.env.local`.
+2. Use the InsForge `create-deployment` tool to push your source code to production.
