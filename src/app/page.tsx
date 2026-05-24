@@ -49,7 +49,7 @@ const features = [
 const plans = [
   {
     name: "Free",
-    price: "$0",
+    price: "₹0",
     period: "forever",
     features: ["5 Monitors", "60s check interval", "30-day retention", "In-app alerts"],
     cta: "Get Started",
@@ -57,7 +57,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$29",
+    price: "₹19",
     period: "/month",
     features: [
       "50 Monitors",
@@ -70,8 +70,8 @@ const plans = [
     highlighted: true,
   },
   {
-    name: "Team",
-    price: "$79",
+    name: "Business",
+    price: "₹49",
     period: "/month",
     features: [
       "200 Monitors",
