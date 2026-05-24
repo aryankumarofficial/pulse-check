@@ -20,6 +20,7 @@ import {
   Moon,
   Sun,
   Clock,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { insforge } from "@/lib/insforge";
@@ -31,6 +32,7 @@ import { useRealtimeSubscription } from "@/hooks/use-realtime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CommandPalette } from "@/components/command-palette";
 import { ROUTES } from "@/lib/constants";
 
 const navigation = [
@@ -40,6 +42,7 @@ const navigation = [
   { name: "Analytics", href: ROUTES.analytics, icon: BarChart3 },
   { name: "Notifications", href: ROUTES.notifications, icon: Bell },
   { name: "Activity", href: ROUTES.activity, icon: Clock },
+  { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Settings", href: ROUTES.settings, icon: Settings },
 ];
 
@@ -95,6 +98,8 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      <CommandPalette />
+      
       {/* Mobile sidebar overlay */}
       <AnimatePresence>
         {sidebarOpen && (

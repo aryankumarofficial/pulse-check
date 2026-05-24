@@ -161,8 +161,27 @@ export function MonitorForm({ initialData, onSubmit, isSubmitting }: MonitorForm
           </div>
         </div>
 
-        {/* Request Body - Only show for applicable methods */}
-        {["POST", "PUT", "PATCH"].includes(method) && (
+        {/* Request Body / AI Config */}
+        {monitorType === "ai" ? (
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>AI Configuration</Label>
+              <div className="text-sm text-muted-foreground mb-4">
+                For AI endpoints, the request body will be automatically formatted as an OpenRouter/OpenAI chat completion request. Enter the prompt you want to monitor below.
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="body">AI Prompt</Label>
+              <textarea
+                id="body"
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="What is the status of..."
+                {...register("body")}
+              />
+              {errors.body && <p className="text-xs text-red-500">{errors.body.message as string}</p>}
+            </div>
+          </div>
+        ) : ["POST", "PUT", "PATCH"].includes(method) ? (
           <div className="space-y-2">
             <Label htmlFor="body">Request Body (JSON)</Label>
             <textarea
@@ -173,7 +192,7 @@ export function MonitorForm({ initialData, onSubmit, isSubmitting }: MonitorForm
             />
             {errors.body && <p className="text-xs text-red-500">{errors.body.message as string}</p>}
           </div>
-        )}
+        ) : null}
 
         {/* Headers */}
         <div className="space-y-3 pt-2">

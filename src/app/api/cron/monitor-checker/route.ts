@@ -44,10 +44,23 @@ export async function POST(req: Request) {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), monitor.timeout_ms || 30000);
 
+          let fetchBody: any = undefined;
+          
+          if (["POST", "PUT", "PATCH"].includes(monitor.method)) {
+            if (monitor.type === "ai") {
+              fetchBody = JSON.stringify({
+                model: "openai/gpt-4o-mini", // Default monitoring model
+                messages: [{ role: "user", content: monitor.body || "Hello" }]
+              });
+            } else {
+              fetchBody = monitor.body;
+            }
+          }
+
           const response = await fetch(monitor.url, {
             method: monitor.method || "GET",
             headers: monitor.headers || {},
-            body: ["POST", "PUT", "PATCH"].includes(monitor.method) && monitor.body ? monitor.body : undefined,
+            body: fetchBody,
             signal: controller.signal,
           });
 
@@ -57,7 +70,23 @@ export async function POST(req: Request) {
           statusCode = response.status;
           
           if (statusCode === (monitor.expected_status || 200)) {
-            isUp = true;
+            if (monitor.type === "ai") {
+              // For AI, verify the response contains valid choices
+              try {
+                const data = await response.json();
+                if (data.choices && data.choices.length > 0) {
+                  isUp = true;
+                } else {
+                  isUp = false;
+                  errorMessage = "Valid response but missing 'choices' array (AI format mismatch)";
+                }
+              } catch (e) {
+                isUp = false;
+                errorMessage = "Failed to parse JSON response from AI endpoint";
+              }
+            } else {
+              isUp = true;
+            }
           } else {
             isUp = false;
             errorMessage = `Expected status ${monitor.expected_status || 200}, got ${statusCode}`;
