@@ -26,6 +26,26 @@ export default function MonitorDetailPage() {
   const monitorId = params.id as string;
   const { data: monitor, isLoading } = useMonitor(monitorId);
 
+  // Fetch real check history from the database
+  const { data: pingData, isLoading: pingLoading } = useQuery({
+    queryKey: ["monitor-checks", monitorId],
+    queryFn: async () => {
+      const { data, error } = await insforge.database.rpc("get_monitor_checks_history", {
+        p_monitor_id: monitorId,
+        p_hours: 24,
+      });
+      if (error) throw error;
+      const rows = typeof data === "string" ? JSON.parse(data) : data;
+      return (rows || []).map((row: any) => ({
+        time: format(new Date(row.checked_at), "HH:mm"),
+        ping: row.ping || 0,
+        is_up: row.is_up,
+      }));
+    },
+    enabled: !!monitorId,
+    refetchInterval: 60000, // Refresh every 60s
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -70,26 +90,6 @@ export default function MonitorDetailPage() {
   };
 
   const statusDisplay = getStatusDisplay(monitor.current_status, monitor.is_active);
-
-  // Fetch real check history from the database
-  const { data: pingData, isLoading: pingLoading } = useQuery({
-    queryKey: ["monitor-checks", monitorId],
-    queryFn: async () => {
-      const { data, error } = await insforge.database.rpc("get_monitor_checks_history", {
-        p_monitor_id: monitorId,
-        p_hours: 24,
-      });
-      if (error) throw error;
-      const rows = typeof data === "string" ? JSON.parse(data) : data;
-      return (rows || []).map((row: any) => ({
-        time: format(new Date(row.checked_at), "HH:mm"),
-        ping: row.ping || 0,
-        is_up: row.is_up,
-      }));
-    },
-    enabled: !!monitorId,
-    refetchInterval: 60000, // Refresh every 60s
-  });
 
   return (
     <div className="space-y-6">
