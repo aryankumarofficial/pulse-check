@@ -2,38 +2,63 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { motion } from "framer-motion";
-import { Lock, ArrowLeft, Loader2, ShieldCheck, Eye, EyeOff, Activity } from "lucide-react";
+import { ShieldCheck, Lock } from "lucide-react";
 import { insforge } from "@/lib/insforge";
-import { resetPasswordSchema, type ResetPasswordInput } from "@/validators/auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  resetPasswordSchema,
+  type ResetPasswordInput,
+} from "@/validators/auth";
 import { ROUTES } from "@/lib/constants";
+import {
+  AuthShell,
+  AuthCard,
+  AuthHeader,
+  AuthAlert,
+  AuthField,
+  AuthPasswordField,
+  AuthBackLink,
+  AuthSuccessState,
+  AuthPageLoader,
+  AuthSubmitButton,
+} from "@/components/auth";
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  return `${local.slice(0, 2)}••••@${domain}`;
+}
 
 function ResetPasswordContent() {
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const linkToken = searchParams.get("token");
+  const linkStatus = searchParams.get("insforge_status");
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      code: linkStatus === "ready" && linkToken ? linkToken : "",
+    },
   });
+
+  const newPassword = watch("newPassword", "");
+  const confirmPassword = watch("confirmPassword", "");
+  const passwordsMatch =
+    confirmPassword.length > 0 && newPassword === confirmPassword;
 
   const onSubmit = async (data: ResetPasswordInput) => {
     setError(null);
 
-    // Step 1: Exchange code for token
     const { data: tokenData, error: tokenError } =
       await insforge.auth.exchangeResetPasswordToken({
         email,
@@ -41,146 +66,114 @@ function ResetPasswordContent() {
       });
 
     if (tokenError || !tokenData?.token) {
-      setError(tokenError?.message || "Invalid reset code");
+      setError(tokenError?.message || "Invalid reset code. Please try again.");
       return;
     }
 
-    // Step 2: Reset password with token
     const { error: resetError } = await insforge.auth.resetPassword({
       newPassword: data.newPassword,
       otp: tokenData.token,
     });
 
     if (resetError) {
-      setError(resetError.message || "Failed to reset password");
+      setError(resetError.message || "Failed to reset password. Please try again.");
       return;
     }
 
     setSuccess(true);
-    setTimeout(() => router.push(ROUTES.signIn), 2000);
+    setTimeout(() => router.push(ROUTES.signIn), 3000);
   };
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-8">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center space-y-4"
-        >
-          <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-              <ShieldCheck className="h-8 w-8 text-emerald-500" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold">Password reset!</h2>
-          <p className="text-muted-foreground">Redirecting to sign in...</p>
-        </motion.div>
-      </div>
+      <AuthShell variant="reset">
+        <AuthCard>
+          <AuthSuccessState
+            icon={ShieldCheck}
+            title="Password updated"
+            description="Your password has been reset successfully. All other sessions have been signed out. Redirecting to sign in…"
+            primaryAction={{
+              label: "Continue to sign in",
+              href: ROUTES.signIn,
+            }}
+          />
+        </AuthCard>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-8"
-      >
-        <Link
-          href={ROUTES.signIn}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to sign in
-        </Link>
+    <AuthShell variant="reset">
+      <AuthCard>
+        <AuthBackLink href={ROUTES.signIn}>Back</AuthBackLink>
 
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">Reset your password</h2>
-          <p className="text-muted-foreground">
-            Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span> and choose a new password
-          </p>
-        </div>
+        <AuthHeader
+          title="Reset your password"
+          description={
+            email ? (
+              <>
+                Creating a new password for{" "}
+                <span className="font-medium text-foreground">
+                  {maskEmail(email)}
+                </span>
+              </>
+            ) : (
+              "Enter your reset code and choose a new password"
+            )
+          }
+        />
 
-        {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-500">
-            {error}
-          </div>
-        )}
+        {error && <AuthAlert variant="error">{error}</AuthAlert>}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="code">Reset Code</Label>
-            <Input
-              id="code"
-              placeholder="123456"
-              maxLength={6}
-              className="text-center text-lg tracking-widest"
-              {...register("code")}
-            />
-            {errors.code && (
-              <p className="text-xs text-red-500">{errors.code.message}</p>
-            )}
-          </div>
+          <AuthField
+            label="Verification code"
+            placeholder="123456"
+            maxLength={6}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            icon={ShieldCheck}
+            className="text-center text-lg tracking-[0.3em] font-mono"
+            error={errors.code?.message}
+            {...register("code")}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">New Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="newPassword"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="pl-10 pr-10"
-                {...register("newPassword")}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {errors.newPassword && (
-              <p className="text-xs text-red-500">{errors.newPassword.message}</p>
-            )}
-          </div>
+          <AuthPasswordField
+            label="New password"
+            placeholder="••••••••"
+            autoComplete="new-password"
+            showStrength
+            strengthSeed={newPassword}
+            error={errors.newPassword?.message}
+            {...register("newPassword")}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="confirmPassword"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="pl-10"
-                {...register("confirmPassword")}
-              />
-            </div>
-            {errors.confirmPassword && (
-              <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>
-            )}
-          </div>
+          <AuthPasswordField
+            label="Confirm new password"
+            placeholder="••••••••"
+            autoComplete="new-password"
+            error={errors.confirmPassword?.message}
+            matchHint={passwordsMatch ? "✓ Passwords match" : undefined}
+            {...register("confirmPassword")}
+          />
 
-          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Reset Password
-          </Button>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            All sessions will be signed out after reset.
+          </p>
+
+          <AuthSubmitButton loading={isSubmitting}>
+            Reset password
+          </AuthSubmitButton>
         </form>
-      </motion.div>
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Activity className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    }>
+    <Suspense fallback={<AuthPageLoader variant="reset" />}>
       <ResetPasswordContent />
     </Suspense>
   );

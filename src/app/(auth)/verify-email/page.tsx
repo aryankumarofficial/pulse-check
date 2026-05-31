@@ -1,57 +1,40 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
-import { Activity, Loader2, MailCheck } from "lucide-react";
+import { MailCheck } from "lucide-react";
 import { insforge } from "@/lib/insforge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/lib/constants";
+import {
+  AuthShell,
+  AuthCard,
+  AuthHeader,
+  AuthAlert,
+  AuthIconBadge,
+  AuthOtpInput,
+  AuthPageLoader,
+  AuthSubmitButton,
+} from "@/components/auth";
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  return `${local.slice(0, 2)}••••@${domain}`;
+}
 
 function VerifyEmailContent() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
 
-  useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
-
-  const handleChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    const newCode = [...code];
-    newCode[index] = value.slice(-1);
-    setCode(newCode);
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    const newCode = [...code];
-    pasted.split("").forEach((char, i) => {
-      if (i < 6) newCode[i] = char;
-    });
-    setCode(newCode);
-    inputRefs.current[Math.min(pasted.length, 5)]?.focus();
-  };
+  const otp = code.join("");
 
   const handleVerify = async () => {
-    const otp = code.join("");
     if (otp.length !== 6) return;
 
     setIsLoading(true);
@@ -63,13 +46,12 @@ function VerifyEmailContent() {
     });
 
     if (verifyError) {
-      setError(verifyError.message || "Invalid verification code");
+      setError(verifyError.message || "Invalid verification code. Please try again.");
       setIsLoading(false);
       return;
     }
 
     if (data?.accessToken) {
-      // Auto-create tenant
       const userId = data.user?.id;
       if (userId) {
         const freePlan = await insforge.database
@@ -116,86 +98,79 @@ function VerifyEmailContent() {
   };
 
   const handleResend = async () => {
+    if (resendCooldown > 0) return;
     setIsResending(true);
-    await insforge.auth.resendVerificationEmail({ email });
+    setError(null);
+    await insforge.auth.resendVerificationEmail({
+      email,
+      redirectTo: `${window.location.origin}${ROUTES.signIn}`,
+    });
     setIsResending(false);
+    setResendCooldown(45);
+    const interval = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-8 text-center"
-      >
-        <div className="flex justify-center">
-          <div className="h-16 w-16 rounded-2xl gradient-primary flex items-center justify-center">
-            <MailCheck className="h-8 w-8 text-white" />
-          </div>
-        </div>
+    <AuthShell variant="verify">
+      <AuthCard>
+        <AuthIconBadge icon={MailCheck} tone="primary" />
+        <AuthHeader
+          align="center"
+          title="Verify your email"
+          description={
+            <>
+              Enter the 6-digit code we sent to{" "}
+              <span className="font-medium text-foreground">
+                {email ? maskEmail(email) : "your email"}
+              </span>
+            </>
+          }
+        />
 
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold">Check your email</h2>
-          <p className="text-muted-foreground">
-            We sent a 6-digit code to{" "}
-            <span className="font-medium text-foreground">{email}</span>
-          </p>
-        </div>
+        {error && <AuthAlert variant="error">{error}</AuthAlert>}
 
-        {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-500">
-            {error}
-          </div>
-        )}
+        <AuthOtpInput value={code} onChange={setCode} disabled={isLoading} error={!!error} />
 
-        <div className="flex justify-center gap-3" onPaste={handlePaste}>
-          {code.map((digit, index) => (
-            <Input
-              key={index}
-              ref={(el) => { inputRefs.current[index] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(index, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              className="h-14 w-12 text-center text-2xl font-bold"
-            />
-          ))}
-        </div>
-
-        <Button
+        <AuthSubmitButton
+          type="button"
+          loading={isLoading}
+          disabled={otp.length !== 6}
           onClick={handleVerify}
-          className="w-full"
-          size="lg"
-          disabled={isLoading || code.join("").length !== 6}
         >
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          Verify Email
-        </Button>
+          Verify email
+        </AuthSubmitButton>
 
-        <p className="text-sm text-muted-foreground">
-          Didn&apos;t receive the code?{" "}
+        <p className="text-center text-sm text-muted-foreground">
+          Didn&apos;t receive a code?{" "}
           <button
+            type="button"
             onClick={handleResend}
-            disabled={isResending}
-            className="text-primary font-medium hover:underline disabled:opacity-50"
+            disabled={isResending || resendCooldown > 0}
+            className="font-medium text-primary hover:underline underline-offset-4 disabled:opacity-50"
           >
-            {isResending ? "Sending..." : "Resend"}
+            {isResending
+              ? "Sending…"
+              : resendCooldown > 0
+                ? `Resend in 0:${String(resendCooldown).padStart(2, "0")}`
+                : "Resend code"}
           </button>
         </p>
-      </motion.div>
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Activity className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    }>
+    <Suspense fallback={<AuthPageLoader variant="verify" label="Loading verification…" />}>
       <VerifyEmailContent />
     </Suspense>
   );

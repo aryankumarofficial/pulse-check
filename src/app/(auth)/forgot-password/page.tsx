@@ -4,14 +4,32 @@ import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { motion } from "framer-motion";
-import { Mail, ArrowLeft, Loader2, KeyRound } from "lucide-react";
+import { Mail, KeyRound, AlertTriangle } from "lucide-react";
 import { insforge } from "@/lib/insforge";
-import { forgotPasswordSchema, type ForgotPasswordInput } from "@/validators/auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  forgotPasswordSchema,
+  type ForgotPasswordInput,
+} from "@/validators/auth";
 import { ROUTES } from "@/lib/constants";
+import {
+  AuthShell,
+  AuthCard,
+  AuthHeader,
+  AuthAlert,
+  AuthField,
+  AuthBackLink,
+  AuthIconBadge,
+  AuthSubmitButton,
+  AuthFooterLink,
+} from "@/components/auth";
+import { Button } from "@/components/ui/button";
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  const visible = local.slice(0, 2);
+  return `${visible}••••@${domain}`;
+}
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
@@ -30,98 +48,102 @@ export default function ForgotPasswordPage() {
     setError(null);
     const { error: sendError } = await insforge.auth.sendResetPasswordEmail({
       email: data.email,
+      redirectTo: `${window.location.origin}${ROUTES.resetPassword}`,
     });
 
     if (sendError) {
-      setError(sendError.message || "Failed to send reset email");
+      setError(sendError.message || "Failed to send reset email. Please try again.");
       return;
     }
 
     setSent(true);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-8"
-      >
-        <Link
-          href={ROUTES.signIn}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to sign in
-        </Link>
+  const email = getValues("email");
 
-        <div className="flex justify-center">
-          <div className="h-16 w-16 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-            <KeyRound className="h-8 w-8 text-amber-500" />
-          </div>
-        </div>
+  return (
+    <AuthShell variant="recovery">
+      <AuthCard>
+        <AuthBackLink href={ROUTES.signIn} />
 
         {sent ? (
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold">Check your email</h2>
-            <p className="text-muted-foreground">
-              We sent a password reset code to{" "}
-              <span className="font-medium text-foreground">
-                {getValues("email")}
+          <div className="space-y-6">
+            <AuthIconBadge icon={Mail} tone="success" />
+            <AuthHeader
+              align="center"
+              title="Check your email"
+              description={
+                <>
+                  We sent a 6-digit reset code to{" "}
+                  <span className="inline-flex items-center rounded-lg bg-primary/10 border border-primary/20 px-2.5 py-0.5 font-medium text-foreground mt-1">
+                    {maskEmail(email)}
+                  </span>
+                </>
+              }
+            />
+
+            <AuthAlert variant="warning">
+              <span className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+                The code expires in 15 minutes. Check your spam folder if you
+                don&apos;t see it.
               </span>
+            </AuthAlert>
+
+            <Button asChild className="auth-cta w-full" size="lg">
+              <Link
+                href={`${ROUTES.resetPassword}?email=${encodeURIComponent(email)}`}
+              >
+                Enter reset code
+              </Link>
+            </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Didn&apos;t receive it?{" "}
+              <button
+                type="button"
+                onClick={() => handleSubmit(onSubmit)()}
+                className="font-medium text-primary hover:underline underline-offset-4"
+              >
+                Resend email
+              </button>
             </p>
-            <Link href={`${ROUTES.resetPassword}?email=${encodeURIComponent(getValues("email"))}`}>
-              <Button className="w-full" size="lg">
-                Enter Reset Code
-              </Button>
-            </Link>
           </div>
         ) : (
           <>
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Forgot your password?</h2>
-              <p className="text-muted-foreground">
-                Enter your email and we&apos;ll send you a reset code
-              </p>
-            </div>
+            <AuthIconBadge icon={KeyRound} tone="warning" />
+            <AuthHeader
+              align="center"
+              title="Forgot your password?"
+              description="Enter your email and we'll send you a reset code"
+            />
 
-            {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-500">
-                {error}
-              </div>
-            )}
+            {error && <AuthAlert variant="error">{error}</AuthAlert>}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="pl-10"
-                    {...register("email")}
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-xs text-red-500">{errors.email.message}</p>
-                )}
-              </div>
+              <AuthField
+                label="Email address"
+                type="email"
+                placeholder="you@company.com"
+                autoComplete="email"
+                icon={Mail}
+                error={errors.email?.message}
+                {...register("email")}
+              />
 
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={isSubmitting}
-              >
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Send Reset Code
-              </Button>
+              <AuthSubmitButton loading={isSubmitting}>
+                Send reset code
+              </AuthSubmitButton>
             </form>
+
+            <AuthFooterLink
+              text="Remember your password?"
+              linkText="Sign in"
+              href={ROUTES.signIn}
+            />
           </>
         )}
-      </motion.div>
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
